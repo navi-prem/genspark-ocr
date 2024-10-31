@@ -16,28 +16,37 @@ def getResponse(message,status_code:int):
 
 """
 Uploads the contents of the file to azure blob storage
-Requires the file name to be unique
 """
 @singleton
 class BlobUploader:
     def __init__(self):
         self.conn_str=os.environ["CONNECTION_STRING"]
-        self.container_name=os.environ["CONTAINER_NAME"]
-        if(self.conn_str=="" or self.container_name ==""):
+        self.kb_container_name=os.environ["KB_CONTAINER_NAME"]
+        self.rag_container_name=os.environ["RAG_CONTAINER_NAME"]
+        if(self.conn_str=="" or self.kb_container_name =="" or self.rag_container_name==""):
             raise Exception("Connection String and Container Name cannot be empty!")
         self.blob_service= BlobServiceClient.from_connection_string(self.conn_str)
-        self.container_client = self.blob_service.get_container_client(self.container_name)
+        self.kb_container_client = self.blob_service.get_container_client(self.kb_container_name)
+        self.rag_container_client = self.blob_service.get_container_client(self.rag_container_name)
 
     """
     returns a unique uuid for the file which can be used to access the file
     format file_name+'$'+uuid
-    the above thing is done for uniqueness
+
+    file_path: local file path
+    file_name: original name of the uploaded file
+    key      : 'rag'|'kb'
     """
-    def upload(self,file_path:str,file_name:str,**kwargs):
+    def upload(self,file_path:str,file_name:str,key:str,**kwargs):
         tags=kwargs.get("tags")
         try:
             blob_name = file_name+'$'+str(uuid.uuid4())
-            blob_client = self.container_client.get_blob_client(blob_name)
+            if(key=="kb"):
+                blob_client = self.kb_container_client.get_blob_client(blob_name)
+            elif(key=="rag"):
+                blob_client = self.rag_container_client.get_blob_client(blob_name)
+            else:
+                raise Exception(f"Unsupported key format '{key}'.")
 
             with open(file_path, "rb") as data:
                 blob_client.upload_blob(data, overwrite=True,tags=tags)
@@ -49,9 +58,16 @@ class BlobUploader:
     
     """
     returns a list of all file names
+    key= 'rag'|'kb'
     """
-    def getAllFileNames(self):
+    def getAllFileNames(self,key:str):
         file_names=[]
-        for file in self.container_client.list_blob_names():
-            file_names.append(file.split('$')[0])
+        if(key=="kb"):
+            container_client= self.kb_container_client
+        elif(key=="rag"):
+            container_client= self.rag_container_client
+        else:
+            raise Exception(f"Unsupported key format '{key}'.")
+        for file in container_client.list_blob_names():
+            file_names.append(file)
         return file_names
