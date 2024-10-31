@@ -69,11 +69,13 @@ class DocumentAnalyzer:
 
         # the code below gives the content of the document
         # use streaming as the content can be large
+        content = ""
         for page in result.pages:
             if page.lines:
                 for _, line in enumerate(page.lines):
                     # vector db
-                    print(line.content)
+                    content += line.content + " "
+        return content
 
     def analyze_document(self, file_path: str):
         if not file_path or file_path == "":

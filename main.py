@@ -6,6 +6,7 @@ from flask import Flask, request
 from werkzeug.utils import secure_filename
 
 import helper
+from Ingest import VectorDB
 
 dotenv.load_dotenv()
 app = Flask(__name__)
@@ -40,7 +41,7 @@ def upload():
     if key != "rag" and key != "kb":
         return helper.getResponse("Select Either rag/kb", 422)
 
-    if tags != None:
+    if tags is not None and tags != "":
         tags = json.loads(tags)
     if f.filename == "":
         return helper.getResponse("No selected file", 422)
@@ -100,5 +101,29 @@ key     : 'rag' | 'kb' key of container
 def url():
     uploader = helper.BlobUploader()
     body = request.get_json()
-    file_uri=uploader.getBlobUrl(body["blob_key"],body["key"])
-    return helper.getResponse({"url":file_uri},200)
+    file_uri = uploader.getBlobUrl(body["blob_key"], body["key"])
+    return helper.getResponse({"url": file_uri}, 200)
+
+
+"""
+ingests the file to the vector db
+blob_key: key of the uploaded blob
+"""
+
+
+@app.route("/ingest", methods=["POST"])
+def ingest():
+    body = request.get_json()
+    dp = VectorDB()
+    dp.ingest(body["blob_key"])
+    return helper.getResponse("Ingested Successfully", 200)
+
+
+"""
+
+"""
+
+
+@app.route("/rag", methods=["POST"])
+def rag():
+    pass
