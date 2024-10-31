@@ -39,22 +39,26 @@ class DocumentAnalyzer:
             endpoint=self.endpoint, credential=AzureKeyCredential(self.key)
         )
 
-    def _get_blob_url(self, blob_key,container_name):
+    def _get_blob_url(self, blob_key, container_name):
         blob_key = blob_key.strip()
         return f"https://{self.storage_account}.blob.core.windows.net/{container_name}/{blob_key}"
 
-    def analyze_blob(self, blob_key: str,key: str):
+    def analyze_blob(self, blob_key: str, key: str):
         if blob_key == "":
             raise Exception("Blob Key Cannot be ''.")
-        if(key!="rag" and key!="kb"):
+        if key != "rag" and key != "kb":
             raise Exception("Choose key 'rag' or 'kb'.")
-        
-        #choose the  appropriate container
-        container_name=self.rag_container_name if key=="rag" else self.kb_container_name
+
+        # choose the  appropriate container
+        container_name = (
+            self.rag_container_name if key == "rag" else self.kb_container_name
+        )
 
         poller = self.client.begin_analyze_document(
             "prebuilt-layout",
-            AnalyzeDocumentRequest(url_source=self._get_blob_url(blob_key,container_name)),
+            AnalyzeDocumentRequest(
+                url_source=self._get_blob_url(blob_key, container_name)
+            ),
         )
         result: AnalyzeResult = poller.result()
 

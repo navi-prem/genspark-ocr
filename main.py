@@ -15,6 +15,7 @@ app = Flask(__name__)
 def handle_home():
     return "Alive!"
 
+
 """
 uploads the file to the azure storage blob
 params should be passed as form data
@@ -22,6 +23,8 @@ file            : the file to be uploaded
 tags(optional)  : tags for the file
 key             : 'kb' | 'rag' choice of container
 """
+
+
 @app.route("/upload", methods=["POST"])
 def upload():
     print(request.files)
@@ -61,13 +64,15 @@ def upload():
     return helper.getResponse("File uploaded successfully", 200)
 
 
-
 """
 gives the list of files in the container
 pass the type of key as query
-valid key: 'kb' | 'rag'
-example: /getAll?key=kb
+
+valid key   : 'kb' | 'rag'
+example     : /getAll?key=kb
 """
+
+
 @app.route("/getAll", methods=["GET"])
 def getFileNames():
     uploader = helper.BlobUploader()
@@ -83,6 +88,17 @@ def getFileNames():
     names = uploader.getAllFileNames(key)
     return helper.getResponse({"names": names}, 200)
 
-@app.route("/getUrl",methods=["POST"])
+
+"""
+gives the url of the uploaded file
+blob_key: key of the uploaded blob
+key     : 'rag' | 'kb' key of container
+"""
+
+
+@app.route("/getUrl", methods=["POST"])
 def url():
-    return "ok"
+    uploader = helper.BlobUploader()
+    body = request.get_json()
+    file_uri=uploader.getBlobUrl(body["blob_key"],body["key"])
+    return helper.getResponse({"url":file_uri},200)
