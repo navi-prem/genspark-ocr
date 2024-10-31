@@ -33,13 +33,14 @@ class BlobUploader:
     format file_name+'$'+uuid
     the above thing is done for uniqueness
     """
-    def upload(self,file_path:str,file_name:str):
+    def upload(self,file_path:str,file_name:str,**kwargs):
+        tags=kwargs.get("tags")
         try:
             blob_name = file_name+'$'+str(uuid.uuid4())
             blob_client = self.container_client.get_blob_client(blob_name)
 
             with open(file_path, "rb") as data:
-                blob_client.upload_blob(data, overwrite=True)
+                blob_client.upload_blob(data, overwrite=True,tags=tags)
             
             print(f"[INFO] File '{blob_name}' uploaded to Azure Blob Storage.")
             return blob_name

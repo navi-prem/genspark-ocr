@@ -1,8 +1,8 @@
 from flask import Flask, request,  request
 from werkzeug.utils import secure_filename
-from langchain_community.document_loaders import PyPDFLoader
 import os
 import dotenv
+import json
 
 import helper
 
@@ -18,9 +18,9 @@ def upload():
     if 'file' not in request.files:
         return helper.getResponse('No file part',422)
     f = request.files['file']
-    body=request.get_json()
-    print(body)
-    return "ok" 
+    tags=request.form.get("tags")
+    if(tags!=None):
+        tags=json.loads(tags)
     if f.filename == '':
         return helper.getResponse('No selected file',422)
 
@@ -32,8 +32,11 @@ def upload():
     
     #uploading the file to the blob storage
     uploader = helper.BlobUploader()
-
-    key=uploader.upload(file_path,f.filename)
+    key=""
+    if(tags):
+        key=uploader.upload(file_path,f.filename,tags=tags)
+    else:
+        key=uploader.upload(file_path,f.filename)
     print("[INFO] Uploaded file with key:",key)
 
     os.remove(file_path)
