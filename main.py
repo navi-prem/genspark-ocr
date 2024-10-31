@@ -1,30 +1,49 @@
-from flask import Flask, request, jsonify, render_template, request
+from flask import Flask, request,  request
 from werkzeug.utils import secure_filename
 from langchain_community.document_loaders import PyPDFLoader
 import os
+import dotenv
 
+import helper
+
+dotenv.load_dotenv()
 app = Flask(__name__)
 
 @app.route("/")
 def handle_home():
     return "Alive!"
 
-@app.route('/upload', methods=['GET', 'POST'])
+@app.route("/upload", methods=[ 'POST'])
 def upload():
-    if request.method == 'POST':
-        if 'file' not in request.files:
-            return 'No file part'
-        f = request.files['file']
-        if f.filename == '':
-            return 'No selected file'
+    if 'file' not in request.files:
+        return helper.getResponse('No file part',422)
+    f = request.files['file']
+    body=request.get_json()
+    print(body)
+    return "ok" 
+    if f.filename == '':
+        return helper.getResponse('No selected file',422)
 
-        file_path = os.path.join('uploads', secure_filename(f.filename))
-        f.save(file_path)
+    if(not f.filename):
+        return helper.getResponse("Error Could Not Upload" ,404)
 
-        loader = PyPDFLoader(file_path)
-        pages = loader.load_and_split()
-        print(pages[0])
+    file_path = os.path.join('uploads', secure_filename(f.filename))
+    f.save(file_path)
+    
+    #uploading the file to the blob storage
+    uploader = helper.BlobUploader()
 
-        return jsonify({ "message": "File uploaded successfully." }),200
+    key=uploader.upload(file_path,f.filename)
+    print("[INFO] Uploaded file with key:",key)
 
-    return render_template('pages/upload.html')
+    os.remove(file_path)
+
+    return helper.getResponse("File uploaded successfully",200)
+
+@app.route('/getAll',methods=['GET'])
+def getFileNames():
+    uploader = helper.BlobUploader()
+    names = uploader.getAllFileNames()
+    return helper.getResponse({
+        "names":names
+    },200)
