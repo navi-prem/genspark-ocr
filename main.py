@@ -39,7 +39,7 @@ def start_rag(key: str):
         key = key.strip()
         rag_chain = Model().rag(key)
 
-        rag_data = json.dumps(rag_chain, indet=0)
+        rag_data = json.dumps(rag_chain, indent=0)
 
         reg_key = uploader.upload_json(rag_data)
 
@@ -187,6 +187,6 @@ def getRes():
     if key == "":
         return helper.getResponse("Key is required for ingestion!", 422)
 
-    buffer = uploader.getBlobJsonData(key)
+    buffer = uploader.getBlobJsonData(key).decode('utf-8')
 
     return helper.getResponse(buffer, 200)
