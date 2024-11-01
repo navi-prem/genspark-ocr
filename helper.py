@@ -46,6 +46,20 @@ class BlobUploader:
         self.rag_container_client = self.blob_service.get_container_client(
             self.rag_container_name
         )
+    
+    """
+    uploads a content of string a file
+    returns the key of the upload
+    uploads by default to the rag container
+    
+    content: string of content
+    """
+    def upload_json(self, content: str) -> str:
+        blob_name = str(uuid.uuid4())
+        data = content.encode("utf-8")
+        self.rag_container_client.get_blob_client(blob_name).upload_blob(data)
+
+        return blob_name
 
     """
     returns a unique uuid for the file which can be used to access the file
@@ -109,3 +123,7 @@ class BlobUploader:
         else:
             raise Exception("Not valid key")
         return f"https://{self.storage_account}.blob.core.windows.net/{container_name}/{blob_key}"
+
+    def getBlobJsonData(self,key:str):
+        data_bytes=self.rag_container_client.get_blob_client(key).download_blob().readall()
+        return data_bytes

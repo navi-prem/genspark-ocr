@@ -1,8 +1,10 @@
 import json
 import os
+# moments before disaster
+import threading
 
 import dotenv
-from flask import Flask, request
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_migrate import Migrate
 from werkzeug.utils import secure_filename
@@ -11,9 +13,6 @@ import helper
 from db import FileTable, db
 from Ingest import VectorDB
 from Model import Model
-
-#moments before disaster
-import threading
 
 dotenv.load_dotenv()
 app = Flask(__name__)
@@ -27,18 +26,28 @@ migrate = Migrate(app, db)
 # with app.app_context():
 #     db.create_all()
 
+uploader = helper.BlobUploader()
 
-def start_rag(key:str):
+
+def start_rag(key: str):
     with app.app_context():
-        #file status change
+        # file status change
         file = FileTable.query.filter_by(blob_key=key).one()
         file.status = "pending"
         db.session.commit()
 
         key = key.strip()
         rag_chain = Model().rag(key)
+
+        rag_data = json.dumps(rag_chain, indet=0)
+
+        reg_key = uploader.upload_json(rag_data)
+
         file.status = "completed"
+        file.res_key = reg_key
         db.session.commit()
+        print("=============Completed==================")
+
 
 @app.route("/")
 def handle_home():
@@ -80,28 +89,26 @@ def upload():
     file_path = os.path.join("uploads", secure_filename(f.filename))
     f.save(file_path)
 
-    # uploading the file to the blob storage
-    uploader = helper.BlobUploader()
     file_uri = ""
     if tags:
         file_uri = uploader.upload(file_path, f.filename, key, tags=tags)
     else:
         file_uri = uploader.upload(file_path, f.filename, key)
     print("[INFO] Uploaded file with key:", file_uri)
-    
-    #for a greater good
-    status="none" if key=="kb" else "completed"
+
+    # for a greater good
+    status = "none" if key == "kb" else "completed"
 
     file = FileTable(name=f.filename, blob_key=file_uri, file_type=key, status=status)
     db.session.add(file)
     db.session.commit()
     os.remove(file_path)
 
-    #start rag
-    if(key=="rag"):
-        t= threading.Thread(target=start_rag,args=(file_uri,))
+    # start rag
+    if key == "rag":
+        t = threading.Thread(target=start_rag, args=(file_uri,))
         t.start()
-    
+
     return helper.getResponse("File uploaded successfully", 200)
 
 
@@ -146,7 +153,6 @@ key     : 'rag' | 'kb' key of container
 
 @app.route("/getUrl", methods=["POST"])
 def url():
-    uploader = helper.BlobUploader()
     body = request.get_json()
     file_uri = uploader.getBlobUrl(body["blob_key"], body["key"])
     return helper.getResponse({"url": file_uri}, 200)
@@ -165,7 +171,22 @@ def ingest():
     key = key.strip()
     if key == "":
         return helper.getResponse("Key is required for ingestion!", 422)
-    db = VectorDB() 
+    db = VectorDB()
     db.ingest(key)
     return helper.getResponse("Ingested Successfully", 200)
 
+"""
+    res_key: str key of res file
+    output: json data of res
+"""
+@app.route("/getRes", methods=["POST"])
+def getRes():
+    body = request.get_json()
+    key = body["res_key"]
+    key = key.strip()
+    if key == "":
+        return helper.getResponse("Key is required for ingestion!", 422)
+
+    buffer = uploader.getBlobJsonData(key)
+
+    return helper.getResponse(buffer, 200)

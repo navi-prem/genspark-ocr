@@ -3,16 +3,22 @@ import unittest
 import dotenv
 
 from DocumentAnalyzer import DocumentAnalyzer
+import helper
 
 
 class TestAnalyzer(unittest.TestCase):
     def testFunc(self):
         dotenv.load_dotenv()
-        self.file_name = "test.pdf$04f9a945-c454-471c-b6b7-d4e165c03503"
-        analyzer = DocumentAnalyzer()
-        data=analyzer.analyze_blob(self.file_name, "kb")
-        print(data)
+        uploader = helper.BlobUploader()
+        key=""
+        with open("./uploads/test.json","r") as f:
+            data=f.read()
+            key=uploader.upload_json(data)
+            print(key)
 
+        buffer = uploader.getBlobJsonData(key)
+
+        data=buffer.decode('utf-8')
 
 if __name__ == "__main__":
     unittest.main()
