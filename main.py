@@ -3,8 +3,8 @@ import os
 
 import dotenv
 from flask import Flask, request
-from flask_migrate import Migrate
 from flask_cors import CORS
+from flask_migrate import Migrate
 from werkzeug.utils import secure_filename
 
 import helper
@@ -73,8 +73,11 @@ def upload():
     else:
         file_uri = uploader.upload(file_path, f.filename, key)
     print("[INFO] Uploaded file with key:", file_uri)
+    
+    #for a greater good
+    status="none" if key=="kb" else "completed"
 
-    file = FileTable(name=f.filename, blob_key=file_uri, file_type=key, status="none")
+    file = FileTable(name=f.filename, blob_key=file_uri, file_type=key, status=status)
     db.session.add(file)
     db.session.commit()
     os.remove(file_path)
@@ -137,17 +140,33 @@ blob_key: key of the uploaded blob
 @app.route("/ingest", methods=["POST"])
 def ingest():
     body = request.get_json()
+    key = body["blob_key"]
+    key = key.strip()
+    if key == "":
+        return helper.getResponse("Key is required for ingestion!", 422)
     db = VectorDB()
-    db.ingest(body["blob_key"])
+    db.ingest(key)
     return helper.getResponse("Ingested Successfully", 200)
+
 
 """
 starts the rag chain
 blob_key: key of the uploaded blob
 """
 
+
 @app.route("/rag", methods=["POST"])
 def rag():
     body = request.get_json()
-    rag_chain = Model().rag(body["blob_key"])
+    key = body["blob_key"]
+    key = key.strip()
+    
+    #file status change
+    file = FileTable.query.filter_by(blob_key=key).one()
+    file.status = "pending"
+    db.session.commit()
+
+    if key == "":
+        return helper.getResponse("Key is required for ingestion!", 422)
+    rag_chain = Model().rag(key)
     return helper.getResponse(rag_chain, 200)
