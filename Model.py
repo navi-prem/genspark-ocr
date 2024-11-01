@@ -1,4 +1,5 @@
 import os
+import re
 from operator import itemgetter
 
 from langchain.prompts import ChatPromptTemplate
@@ -8,13 +9,6 @@ from langchain_openai import AzureOpenAIEmbeddings
 
 from DocumentAnalyzer import DocumentAnalyzer
 from helper import singleton
-
-
-def format_qa_pair(question, answer):
-    """Format Q and A pair"""
-    formatted_string = ""
-    formatted_string += f"Question: {question}\nAnswer: {answer}\n\n"
-    return formatted_string.strip()
 
 
 @singleton
@@ -50,38 +44,26 @@ class Model:
         self.db = VectorDB()
 
         content = self.analyzer.analyze_blob(blob_key, "rag")
-        template = """
-        you are a helpfull assistant that splits the given content into multiple parts
-        such that it can be used for further processing.\n given content: {content} \n
-        Output (3 queries):
-        """
-        content_decomposition = ChatPromptTemplate.from_template(template)
-        generate = (
-            content_decomposition
-            | self.llm
-            | StrOutputParser()
-            | (lambda x: x.split("\n"))
-        )
-        split_content = generate.invoke({"content": content})
+
+        split_content = []
+        for i in range(0, len(content), 1000):
+            split_content.append(content[i: i + 1000])
 
         template = """
         Here is the content that needs to be checked for any violations of the rules/laws:
-
         \n --- \n {content} \n --- \n
-
-        Here is any available background question + answer pairs:
-
+        Here is any available content before this content that is checked for any violations in form of pairs:
         \n --- \n {q_a_pairs} \n --- \n
-
         Here is additional context relevant to the question:
-
         \n --- \n {context} \n --- \n
-
-        Use the above context and any background question + answer pairs to check if the content violates any rules/laws.
+        Use the above context and pairs to check if the content violates any rules/laws.\n
+        Give result in this format: content:is_violation: (yes/no) \n violation: (violation) \n
+        No extra information is needed. just one result for entire content.
         """
         decomposition_prompt = ChatPromptTemplate.from_template(template)
 
-        q_a_pairs = "question: board member can take decision on there own\nanswer:illegal\nboard cant take decision on there own"
+        q_a_pairs = ""
+        results = []
         for content in split_content:
             rag_chain = (
                 {
@@ -93,4 +75,18 @@ class Model:
                 | self.llm
                 | StrOutputParser()
             )
+
+            result = {"title": content}
             answer = rag_chain.invoke({"content": content, "q_a_pairs": q_a_pairs})
+            q_a_pairs = q_a_pairs + "\n---\n" + answer
+            answer = re.findall(r'(\w+): \((.*?)\)', answer)
+
+            for k, v in answer:
+                if k == "is_violation":
+                    k = "status"
+                else:
+                    k = "reason"
+                result[k] = v
+            results.append(result)
+
+        return results
