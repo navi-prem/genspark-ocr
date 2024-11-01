@@ -11,6 +11,21 @@ from DocumentAnalyzer import DocumentAnalyzer
 from helper import singleton
 
 
+def content_spliter(content, n):
+    words = content.split()
+    total_words = len(words)
+    section_size = total_words // n
+    sections = []
+    for i in range(n):
+        start_index = i * section_size
+        if i == n-1:
+            end_index = total_words
+        else:
+            end_index = start_index + section_size
+        sections.append(' '.join(words[start_index:end_index]))
+    return sections
+
+
 @singleton
 class Model:
     llm = None
@@ -45,9 +60,7 @@ class Model:
 
         content = self.analyzer.analyze_blob(blob_key, "rag")
 
-        split_content = []
-        for i in range(0, len(content), 1000):
-            split_content.append(content[i: i + 1000])
+        split_content = content_spliter(content, 5)
 
         template = """
         Here is the content that needs to be checked for any violations of the rules/laws:
