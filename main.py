@@ -4,6 +4,7 @@ import os
 import dotenv
 from flask import Flask, request
 from flask_migrate import Migrate
+from flask_cors import CORS
 from werkzeug.utils import secure_filename
 
 import helper
@@ -12,6 +13,7 @@ from Ingest import VectorDB
 
 dotenv.load_dotenv()
 app = Flask(__name__)
+CORS(app)
 
 # db initialization
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ["DB_CONNSTR"]

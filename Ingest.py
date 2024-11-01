@@ -18,7 +18,6 @@ class VectorDB:
     vector_store: AzureSearch
 
     def __init__(self):
-        dotenv.load_dotenv()
         self.analyzer = DocumentAnalyzer()
         self.index_name = os.getenv("VECTORDB_INDEX_NAME")
         self.embeddings = Model().embeddings
