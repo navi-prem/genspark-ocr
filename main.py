@@ -3,13 +3,23 @@ import os
 
 import dotenv
 from flask import Flask, request
+from flask_migrate import Migrate
 from werkzeug.utils import secure_filename
 
 import helper
+from db import FileTable, db
 from Ingest import VectorDB
 
 dotenv.load_dotenv()
 app = Flask(__name__)
+
+# db initialization
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ["DB_CONNSTR"]
+db.init_app(app)
+migrate = Migrate(app, db)
+# uncomment if a new tabel is created
+# with app.app_context():
+#     db.create_all()
 
 
 @app.route("/")
@@ -61,6 +71,9 @@ def upload():
         file_uri = uploader.upload(file_path, f.filename, key)
     print("[INFO] Uploaded file with key:", file_uri)
 
+    file = FileTable(name=f.filename, blob_key=file_uri, file_type=key, status="none")
+    db.session.add(file)
+    db.session.commit()
     os.remove(file_path)
     return helper.getResponse("File uploaded successfully", 200)
 
@@ -76,7 +89,6 @@ example     : /getAll?key=kb
 
 @app.route("/getAll", methods=["GET"])
 def getFileNames():
-    uploader = helper.BlobUploader()
     key = request.args.get("key")
     if not key or key.strip() == "":
         return helper.getResponse(
@@ -86,8 +98,16 @@ def getFileNames():
             422,
         )
     key = key.strip()
-    names = uploader.getAllFileNames(key)
-    return helper.getResponse({"names": names}, 200)
+    data = (
+        FileTable.query.filter_by(file_type=key)
+        .with_entities(
+            FileTable.name, FileTable.status, FileTable.blob_key, FileTable.res_key
+        )
+        .all()
+    )
+    result_dict = [u._asdict() for u in data]
+
+    return helper.getResponse({"data": result_dict}, 200)
 
 
 """
@@ -118,12 +138,9 @@ def ingest():
     dp.ingest(body["blob_key"])
     return helper.getResponse("Ingested Successfully", 200)
 
-
 """
-
 """
-
 
 @app.route("/rag", methods=["POST"])
 def rag():
-    pass
+    return "ok"
