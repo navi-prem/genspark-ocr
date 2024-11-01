@@ -3,14 +3,17 @@ import os
 
 import dotenv
 from flask import Flask, request
-from flask_migrate import Migrate
 from flask_cors import CORS
+from flask_migrate import Migrate
 from werkzeug.utils import secure_filename
 
 import helper
 from db import FileTable, db
 from Ingest import VectorDB
 from Model import Model
+
+#moments before disaster
+import threading
 
 dotenv.load_dotenv()
 app = Flask(__name__)
@@ -24,6 +27,18 @@ migrate = Migrate(app, db)
 # with app.app_context():
 #     db.create_all()
 
+
+def start_rag(key:str):
+    with app.app_context():
+        #file status change
+        file = FileTable.query.filter_by(blob_key=key).one()
+        file.status = "pending"
+        db.session.commit()
+
+        key = key.strip()
+        rag_chain = Model().rag(key)
+        file.status = "completed"
+        db.session.commit()
 
 @app.route("/")
 def handle_home():
@@ -73,11 +88,20 @@ def upload():
     else:
         file_uri = uploader.upload(file_path, f.filename, key)
     print("[INFO] Uploaded file with key:", file_uri)
+    
+    #for a greater good
+    status="none" if key=="kb" else "completed"
 
-    file = FileTable(name=f.filename, blob_key=file_uri, file_type=key, status="none")
+    file = FileTable(name=f.filename, blob_key=file_uri, file_type=key, status=status)
     db.session.add(file)
     db.session.commit()
     os.remove(file_path)
+
+    #start rag
+    if(key=="rag"):
+        t= threading.Thread(target=start_rag,args=(file_uri,))
+        t.start()
+    
     return helper.getResponse("File uploaded successfully", 200)
 
 
@@ -137,17 +161,11 @@ blob_key: key of the uploaded blob
 @app.route("/ingest", methods=["POST"])
 def ingest():
     body = request.get_json()
-    db = VectorDB()
-    db.ingest(body["blob_key"])
+    key = body["blob_key"]
+    key = key.strip()
+    if key == "":
+        return helper.getResponse("Key is required for ingestion!", 422)
+    db = VectorDB() 
+    db.ingest(key)
     return helper.getResponse("Ingested Successfully", 200)
 
-"""
-starts the rag chain
-blob_key: key of the uploaded blob
-"""
-
-@app.route("/rag", methods=["POST"])
-def rag():
-    body = request.get_json()
-    rag_chain = Model().rag(body["blob_key"])
-    return helper.getResponse(rag_chain, 200)
