@@ -1,6 +1,12 @@
+import os
 from operator import itemgetter
 
 from langchain.prompts import ChatPromptTemplate
+from langchain_community.llms.azureml_endpoint import (
+    AzureMLEndpointApiType,
+    AzureMLOnlineEndpoint,
+    CustomOpenAIContentFormatter,
+)
 from langchain_core.output_parsers import StrOutputParser
 from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
 
@@ -27,13 +33,19 @@ class Model:
     )
 
     def __init__(self):
-        self.llm = AzureChatOpenAI(
-            azure_deployment="tuskact1",
-            api_version="2024-05-01-preview",
-            temperature=0.1,
-            max_tokens=100,
-            timeout=10,
-            max_retries=0,
+        # self.llm = AzureChatOpenAI(
+        #     azure_deployment="tuskact1",
+        #     api_version="2024-05-01-preview",
+        #     temperature=0.1,
+        #     max_tokens=100,
+        #     timeout=10,
+        #     max_retries=0,
+        # )
+        self.llm = AzureMLOnlineEndpoint(
+            endpoint_url=os.getenv("NEP"),
+            endpoint_api_type=AzureMLEndpointApiType.serverless,
+            endpoint_api_key=os.getenv("MS"),
+            model_kwargs={"temperature": 0.2, "max_new_tokens": 200},
         )
 
         self.embeddings = AzureOpenAIEmbeddings(
@@ -48,6 +60,7 @@ class Model:
 
     def rag(self, blob_key):
         from Ingest import VectorDB
+
         self.db = VectorDB()
 
         content = self.analyzer.analyze_blob(blob_key, "rag")
@@ -68,17 +81,11 @@ class Model:
 
         template = """
         Here is the content that needs to be checked for any violations of the rules/laws:
-
         \n --- \n {content} \n --- \n
-
         Here is any available background question + answer pairs:
-
         \n --- \n {q_a_pairs} \n --- \n
-
         Here is additional context relevant to the question:
-
         \n --- \n {context} \n --- \n
-
         Use the above context and any background question + answer pairs to check if the content violates any rules/laws.
         """
         decomposition_prompt = ChatPromptTemplate.from_template(template)
