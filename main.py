@@ -10,6 +10,7 @@ from werkzeug.utils import secure_filename
 import helper
 from db import FileTable, db
 from Ingest import VectorDB
+from Model import Model
 
 dotenv.load_dotenv()
 app = Flask(__name__)
@@ -136,13 +137,17 @@ blob_key: key of the uploaded blob
 @app.route("/ingest", methods=["POST"])
 def ingest():
     body = request.get_json()
-    dp = VectorDB()
-    dp.ingest(body["blob_key"])
+    db = VectorDB()
+    db.ingest(body["blob_key"])
     return helper.getResponse("Ingested Successfully", 200)
 
 """
+starts the rag chain
+blob_key: key of the uploaded blob
 """
 
 @app.route("/rag", methods=["POST"])
 def rag():
-    return "ok"
+    body = request.get_json()
+    rag_chain = Model().rag(body["blob_key"])
+    return helper.getResponse(rag_chain, 200)

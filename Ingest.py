@@ -1,6 +1,5 @@
 import os
 
-import dotenv
 from langchain_community.vectorstores.azuresearch import AzureSearch
 from langchain_core.documents import Document
 from langchain_text_splitters import CharacterTextSplitter
@@ -34,9 +33,11 @@ class VectorDB:
         docs = text_splitter.split_documents(
             [Document(page_content=documents, metadate={"tags": "kb"})]
         )
-        self.vector_store.add_documents(docs)
+        print(self.vector_store.add_documents(docs))
 
     def query(self, content):
-        return self.vector_store.similarity_search(
+        data = self.vector_store.similarity_search(
             query=content, k=3, search_type="similarity"
         )
+        print(data)
+        return data
