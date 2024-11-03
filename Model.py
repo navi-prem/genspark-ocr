@@ -70,14 +70,17 @@ class Model:
         Here is additional context relevant to the question:
         \n --- \n {context} \n --- \n
         Use the above context and pairs to check if the content violates any rules/laws.\n
-        Give result in this format: content:is_violation: (yes/no) \n violation: (violation) \n
-        No extra information is needed. just one result for entire content.
+        Give result in this format: is_violation: (yes/no) \n reason: (violation) \n
+        No extra information is needed. just one result for entire content. the reason must be unique and valid
         """
         decomposition_prompt = ChatPromptTemplate.from_template(template)
 
         q_a_pairs = ""
+
         results = []
+
         for content in split_content:
+
             rag_chain = (
                 {
                     "content": itemgetter("content"),
@@ -90,16 +93,21 @@ class Model:
             )
 
             result = {"title": content}
-            answer = rag_chain.invoke({"content": content, "q_a_pairs": q_a_pairs})
-            q_a_pairs = q_a_pairs + "\n---\n" + answer
-            answer = re.findall(r'(\w+): \((.*?)\)', answer)
 
-            for k, v in answer:
-                if k == "is_violation":
-                    k = "status"
-                else:
-                    k = "reason"
-                result[k] = v
+            answer = rag_chain.invoke({"content": content, "q_a_pairs": q_a_pairs})
+
+            is_violation_pattern = r"is_violation:\s*(yes|no)"
+            reason_pattern = r"reason:\s*(.*)"
+            is_violation_match = re.search(is_violation_pattern, answer)
+            is_violation = is_violation_match.group(1).strip() if is_violation_match else None
+            reason_match = re.search(reason_pattern, answer, re.DOTALL)
+            reason = reason_match.group(1).strip() if reason_match else None
+
+            result["status"] = is_violation
+            result["reason"] = reason
+
+            q_a_pairs = q_a_pairs + "\n---\n" + str(result)
+
             results.append(result)
 
         return results

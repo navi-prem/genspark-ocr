@@ -175,10 +175,13 @@ def ingest():
     db.ingest(key)
     return helper.getResponse("Ingested Successfully", 200)
 
+
 """
     res_key: str key of res file
     output: json data of res
 """
+
+
 @app.route("/getRes", methods=["POST"])
 def getRes():
     body = request.get_json()
